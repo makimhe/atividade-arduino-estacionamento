@@ -1,0 +1,102 @@
+// Inclui a biblioteca do Servo Motor
+#include <Servo.h>
+
+// Variáveis que vão armazenar a distância lida pelos sensores ultrassônicos
+int sensor_saida = 0;
+int sensor_entrada = 0;
+
+// Declara dois servos: um para a cancela de entrada e outro para a de saída
+Servo servo_3;   // Servo conectado ao pino 3 (cancela de entrada)
+Servo servo_13;  // Servo conectado ao pino 13 (cancela de saída)
+
+
+// Função que mede a distância usando o sensor ultrassônico
+long readUltrasonicDistance(int triggerPin, int echoPin)
+{
+  // Configura o pino acionador como saída
+  pinMode(triggerPin, OUTPUT);
+  // Garante que o acionador começa em nível LOW
+  digitalWrite(triggerPin, LOW);
+  delayMicroseconds(2);
+
+  // Envia um pulso de 10 microssegundos (ativa o sensor)
+  digitalWrite(triggerPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(triggerPin, LOW);
+
+  // Muda o pino Echo para entrada, pra medir o tempo do retorno do som
+  pinMode(echoPin, INPUT);
+  // Mede o tempo (em microssegundos) até o som voltar
+  return pulseIn(echoPin, HIGH);
+}
+
+
+void setup()
+{
+  // Define o controle dos dois servos e os limites de pulso (500 a 2500 µs)
+  servo_3.attach(3, 500, 2500);
+  servo_13.attach(13, 500, 2500);
+
+  // Define os pinos usados para LEDs ou sinais de alerta
+  pinMode(12, OUTPUT);  // LED ligado à cancela de saída
+  pinMode(4, OUTPUT);   // LED ligado à cancela de entrada
+
+  // Inicia a comunicação serial para monitorar os dados no computador
+  Serial.begin(9600);
+
+  // Define mais dois pinos de LED (provavelmente verde/vermelho)
+  pinMode(11, OUTPUT);  // LED da saída (oposto do pino 12)
+  pinMode(5, OUTPUT);   // LED da entrada (oposto do pino 4)
+}
+
+
+void loop()
+{
+  // Mantém as cancelas inicialmente fechadas
+  servo_3.write(0);
+  servo_13.write(0);
+
+  // Acende os LEDs principais (talvez “disponível”)
+  digitalWrite(12, HIGH);
+  digitalWrite(4, HIGH);
+
+  // Lê a distância dos sensores de saída e entrada
+  // Multiplica o tempo de retorno (em microsegundos) por 0.01723 para converter em cm
+  sensor_saida = 0.01723 * readUltrasonicDistance(10, 9);  // Trigger=10, Echo=9
+  sensor_entrada = 0.01723 * readUltrasonicDistance(7, 6); // Trigger=7, Echo=6
+
+  // Mostra no monitor serial as distâncias medidas
+  Serial.println(sensor_entrada);
+  Serial.println(sensor_saida);
+
+  // ——————————————————————————————
+  // SE UM CARRO ESTIVER NA SAÍDA
+  // ——————————————————————————————
+  if (sensor_saida <= 50) {
+    servo_13.write(90);     // Abre a cancela de saída (servo gira 90°)
+    delay(1000);            // Espera 1 segundo
+    digitalWrite(12, LOW);  // Apaga LED (vermelho)
+    digitalWrite(11, HIGH); // Acende LED verde (liberado)
+    delay(3000);            // Cancela fica aberta por 3 segundos
+    servo_13.write(0);      // Fecha a cancela (volta a 0°)
+    delay(1000);            // Espera 1 segundo
+    digitalWrite(12, HIGH); // Volta LED vermelho
+    digitalWrite(11, LOW);  // Apaga LED verde
+  } 
+  // ——————————————————————————————
+  // SENÃO, SE UM CARRO ESTIVER NA ENTRADA
+  // ——————————————————————————————
+  else {
+    if (sensor_entrada <= 50) {
+      servo_3.write(90);     // Abre a cancela de entrada
+      delay(1000);           // Espera 1 segundo
+      digitalWrite(4, LOW);  // Apaga LED vermelho
+      digitalWrite(5, HIGH); // Acende LED verde
+      delay(3000);           // Cancela aberta por 3 segundos
+      servo_3.write(0);      // Fecha a cancela
+      delay(1000);           // Espera 1 segundo
+      digitalWrite(4, HIGH); // Volta LED vermelho
+      digitalWrite(5, LOW);  // Apaga LED verde
+    }
+  }
+}
